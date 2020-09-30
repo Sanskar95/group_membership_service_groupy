@@ -24,36 +24,35 @@ init(Id, Grp, Master) ->
 slave(Id, Master, Leader, Slaves, Group) ->
     receive
         {mcast, Msg} ->
-            io:format("gms ~w: received {mcast, ~w} ~n", [Id, Msg]),
+            io:format("gms 1 ~w: received the message {mcast, ~w} ~n", [Id, Msg]),
             Leader ! {mcast, Msg},
             slave(Id, Master, Leader, Slaves, Group);
         {join, Wrk, Peer} ->
-            io:format("gms ~w: forward join from ~w to leader~n", [Id, Peer]),
+            io:format("gms 1~w: forwarding join request  from the node ~w to leader~n", [Id, Peer]),
             Leader ! {join, Wrk, Peer},
             slave(Id, Master, Leader, Slaves, Group);
         {msg, Msg} ->
-            io:format("gms ~w: deliver msg ~w ~n", [Id, Msg]),
+            io:format("gms 1 ~w: recieved join confirmation msg ~w ~n", [Id, Msg]),
             Master ! Msg,
             slave(Id, Master, Leader, Slaves, Group);
         {view, [Leader | Slaves2], Group2} ->
-            %%io:format("gms ~w: received view ~w ~w~n", [Id, N, View]),
             Master ! {view, Group2},
             slave(Id, Master, Leader, Slaves2, Group2);
         stop ->
             ok;
-        Error ->
-            io:format("gms ~w: slave, Error message ~w~n", [Id, Error])
+        _ ->
+            io:format("gms : slave, Error message ~w~n", [Id])
     end.
 
 leader(Id, Master, Slaves, Group) ->
     receive
         {mcast, Msg} ->
-            io:format("gms ~w: received {mcast, ~w} ~n", [Id, Msg]),
+            io:format("gms 1 ~w: received the message  {mcast, ~w} ~n", [Id, Msg]),
             bcast(Id, {msg, Msg}, Slaves),
             Master ! Msg,
             leader(Id, Master, Slaves, Group);
         {join, Wrk, Peer} ->
-            io:format("gms ~w: forward join from ~w to master~n", [Id, Peer]),
+            io:format("gms 1 ~w: redirect  join request  from ~w to app layer(master)~n", [Id, Peer]),
             Slaves2 = lists:append(Slaves, [Peer]),
             Group2 = lists:append(Group, [Wrk]),
             bcast(Id, {view, [self() | Slaves2], Group2}, Slaves2),
@@ -61,8 +60,8 @@ leader(Id, Master, Slaves, Group) ->
             leader(Id, Master, Slaves2, Group2);
         stop ->
             ok;
-        Error ->
-            io:format("gms ~w: leader: error message: ~w~n", [Id, Error])
+        _ ->
+            io:format("gms 1 : Leader: something went wrong with the reason: ~w~n", [Id])
     end.
 
 bcast(_Id, Msg, Nodes) ->

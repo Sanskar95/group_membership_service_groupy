@@ -1,17 +1,9 @@
-%%%-------------------------------------------------------------------
-%%% @author Amir
-%%% @copyright (C) 2016, <COMPANY>
-%%% @doc
-%%%
-%%% @end
-%%% Created : 01. okt 2016 16:00
-%%%-------------------------------------------------------------------
+
 -module(gms3).
 
-%% API
 -define(timeout, 2000).
 -define(arghh, 200).
--define(chanceOfLosing, 25).
+-define(messageLoosingMetric, 25).
 -compile(export_all).
 
 start(Id) ->
@@ -34,7 +26,6 @@ init(Id,Rnd, Grp, Master) ->
     Grp ! {join, Master, Self},
     receive
         {view, N, [Leader|Slaves], Group} ->
-            % erlang:display("Kommer jag in i receive i init"), erlang:display(self()),
             erlang:monitor(process, Leader),
             Master ! {view, Group},
             slave(Id, Master, Leader, N+1, {view, N, [Leader|Slaves], Group}, Slaves, Group)
@@ -45,11 +36,12 @@ init(Id,Rnd, Grp, Master) ->
 leader(Id, Master, N, Slaves, Group) ->
     receive
         {mcast, Msg} ->
+            io:format("gms 3 ~w: received the message  {mcast, ~w} ~n", [Id, Msg]),
             bcast(Id, {msg, N, Msg}, Slaves),
             Master ! Msg,
             leader(Id, Master, N+1, Slaves, Group);
         {join, Wrk, Peer} ->
-            %erlang:display("Kommer jag in i leader funktionen nar jag ska joina en slav"), erlang:display(self()),
+            io:format("gms 3 ~w: redirect  join request  from ~w to app layer(master)~n", [Id, Peer]),
             Slaves2 = lists:append(Slaves, [Peer]),
             Group2 = lists:append(Group, [Wrk]),
             bcast(Id, {view, N, [self()|Slaves2], Group2}, Slaves2),
@@ -61,23 +53,26 @@ leader(Id, Master, N, Slaves, Group) ->
 
 slave(Id, Master, Leader, N, Last, Slaves, Group) ->
     receive
-        {'DOWN', _Ref, process, Leader, _Reason} ->
+        {'DOWN', _Ref, process, Leader, Reason} ->
+            io:format("Leader process has crashed ~w~n", [Reason]),
             election(Id, Master, N, Last, Slaves, Group);
         {mcast, Msg} ->
-            %erlang:display("Kommer jag in som slav i mcast"), erlang:display(self()),
+            io:format("gms 3 ~w: received the message {mcast, ~w} ~n", [Id, Msg]),
             Leader ! {mcast, Msg},
             slave(Id, Master, Leader, N, Last, Slaves, Group);
         {join, Wrk, Peer} ->
+            io:format("gms 3 ~w: forwarding join request  from the node ~w to leader~n", [Id, Peer]),
             Leader ! {join, Wrk, Peer},
             slave(Id, Master, Leader, N, Last, Slaves, Group);
         {msg, I, _} when I < N ->
+            io:format("gms 3 : recieved  msg with sequence  ~w ~n", [N]),
             slave(Id, Master, Leader, N, Last, Slaves, Group);
         {msg, N, Msg} ->
+            io:format("gms 3 ~w: recieved join confirmation msg, sequence ~w ~w ~n", [Id, Msg, N]),
             bcast(Id, {msg, N, Msg}, Slaves),
             Master ! Msg,
             slave(Id, Master, Leader, N+1, {msg, N, Msg}, Slaves, Group);
         {view, N, [Leader|Slaves2], Group2} ->
-            %erlang:display("Mitt N är med den här worker"), erlang:display(N), erlang:display(self()),
             bcast(Id, {view, N,[Leader|Slaves2], Group2}, Slaves),
             Master ! {view, Group2},
             slave(Id, Master, Leader, N+1, {view, N, [Leader|Slaves2], Group2}, Slaves2, Group2);
@@ -88,41 +83,34 @@ slave(Id, Master, Leader, N, Last, Slaves, Group) ->
 
 
 election(Id, Master, N, Last, Slaves, [_|Group]) ->
-    erlang:display("Kommer in i election med ID"), erlang:display(self()),
+    io:format("Last message: ~w~n", [Last]),
     Self = self(),
     case Slaves of
         [Self|Rest] ->
             bcast(Id, Last, Rest),
             bcast(Id, {view, N, Slaves, Group}, Rest),
             Master ! {view, Group},
+            io:format("Your new Leader is: ~w~n", [Self]),
+            io:format("Your new Leader_Id is: ~w~n", [Id]),
             leader(Id, Master, N+1, Rest, Group);
         [Leader|Rest] ->
-            %io:format("Jag ar och followar , ~w  ~w", [self(),Leader]),
             erlang:monitor(process, Leader),
             slave(Id, Master, Leader, N, Last, Rest, Group)
     end.
 
 bcast(Id, Msg, Nodes) ->
-
-    %case random:uniform(?chanceOfLosing) of
-    %?chanceOfLosing -> lostMessage(Msg);
-    %_ ->
     lists:foreach(fun(Node) -> forcedLostMessage(Id,Msg,Node), crash(Id)  end, Nodes).
-% end.
 
-%lostMessage(Msg)->
-%      io:format("Did not send message, ~w", [Msg]).
-
-forcedLostMessage(Id, Msg,Node)->
-    case random:uniform(?chanceOfLosing) of
-        ?chanceOfLosing -> ok, io:format("Message ~w was lost ~n", [Msg]);
+forcedLostMessage(_, Msg,Node)->
+    case random:uniform(?messageLoosingMetric) of
+        ?messageLoosingMetric -> ok, io:format("Message ~w was lost ~n", [Msg]);
         _ -> Node ! Msg
     end.
 
 crash(Id) ->
     case random:uniform(?arghh) of
         ?arghh ->
-            io:format("leader ~w: crash~n", [Id]),
+            io:format("leader ~w: has crashed ~n", [Id]),
             exit(no_luck);
         _ ->
             ok
