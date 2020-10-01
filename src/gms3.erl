@@ -1,9 +1,9 @@
 
 -module(gms3).
 
--define(timeout, 2000).
--define(arghh, 1000).
--define(messageLoosingMetric, 5).
+-define(timeout, 200).
+-define(arghh, 100).
+-define(messageLoosingMetric, 50).
 -compile(export_all).
 
 start(Id) ->
@@ -101,11 +101,21 @@ election(Id, Master, N, Last, Slaves, [_|Group]) ->
 bcast(Id, Msg, Nodes) ->
     lists:foreach(fun(Node) -> forcedLostMessage(Id,Msg,Node)  end, Nodes).
 
-forcedLostMessage(_, Msg,Node)->
+forcedLostMessage(Id, Msg,Node)->
+    %% Decide if a message will be lost
     case random:uniform(?messageLoosingMetric) of
-        ?messageLoosingMetric -> ok, io:format("Message ~w was lost ~n", [Msg]);
-        _ -> Node ! Msg
+        ?messageLoosingMetric ->
+           %%Simulating a lost message using message loosing metric
+            io:format("Message ~w was lost ~n", [Msg]),
+            timer:sleep(100),
+            %% try the method again recursively hoping to send the message again :)
+            io:format(" Resending Message ~w that was lost ~n", [Msg]),
+            forcedLostMessage(Id, Msg,Node);
+        _ ->
+            %% Send a message normally
+            Node ! Msg
     end.
+
 
 crash(Id) ->
     timer:sleep(500),
