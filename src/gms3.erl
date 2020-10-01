@@ -2,8 +2,8 @@
 -module(gms3).
 
 -define(timeout, 2000).
--define(arghh, 200).
--define(messageLoosingMetric, 50).
+-define(arghh, 1000).
+-define(messageLoosingMetric, 5).
 -compile(export_all).
 
 start(Id) ->
@@ -99,7 +99,7 @@ election(Id, Master, N, Last, Slaves, [_|Group]) ->
     end.
 
 bcast(Id, Msg, Nodes) ->
-    lists:foreach(fun(Node) -> forcedLostMessage(Id,Msg,Node), crash(Id)  end, Nodes).
+    lists:foreach(fun(Node) -> forcedLostMessage(Id,Msg,Node)  end, Nodes).
 
 forcedLostMessage(_, Msg,Node)->
     case random:uniform(?messageLoosingMetric) of
@@ -108,6 +108,7 @@ forcedLostMessage(_, Msg,Node)->
     end.
 
 crash(Id) ->
+    timer:sleep(500),
     case random:uniform(?arghh) of
         ?arghh ->
             io:format("leader ~w: has crashed ~n", [Id]),
