@@ -1,5 +1,5 @@
 -module(test0).
--export([start/1, stop/1, add/1]).
+-export([start/1, stop/1]).
 
 start(Module) ->
     worker:start(0, l, Module, 1000),
@@ -20,5 +20,3 @@ start(Module) ->
 stop(Node) ->
     worker:stop(Node).
 
-add(Module)->
-    worker:start(8, w7, Module, w6, 1000).

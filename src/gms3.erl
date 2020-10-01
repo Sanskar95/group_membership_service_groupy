@@ -3,7 +3,7 @@
 
 -define(timeout, 2000).
 -define(arghh, 200).
--define(messageLoosingMetric, 25).
+-define(messageLoosingMetric, 50).
 -compile(export_all).
 
 start(Id) ->
@@ -36,12 +36,12 @@ init(Id,Rnd, Grp, Master) ->
 leader(Id, Master, N, Slaves, Group) ->
     receive
         {mcast, Msg} ->
-            io:format("gms 3 ~w: received the message  {mcast, ~w} ~n", [Id, Msg]),
+%%            io:format("gms 3 ~w: received the message  {mcast, ~w} ~n", [Id, Msg]),
             bcast(Id, {msg, N, Msg}, Slaves),
             Master ! Msg,
             leader(Id, Master, N+1, Slaves, Group);
         {join, Wrk, Peer} ->
-            io:format("gms 3 ~w: redirect  join request  from ~w to app layer(master)~n", [Id, Peer]),
+%%            io:format("gms 3 ~w: redirect  join request  from ~w to app layer(master)~n", [Id, Peer]),
             Slaves2 = lists:append(Slaves, [Peer]),
             Group2 = lists:append(Group, [Wrk]),
             bcast(Id, {view, N, [self()|Slaves2], Group2}, Slaves2),
@@ -54,21 +54,21 @@ leader(Id, Master, N, Slaves, Group) ->
 slave(Id, Master, Leader, N, Last, Slaves, Group) ->
     receive
         {'DOWN', _Ref, process, Leader, Reason} ->
-            io:format("Leader process has crashed ~w~n", [Reason]),
+%%            io:format("Leader process has crashed ~w~n", [Reason]),
             election(Id, Master, N, Last, Slaves, Group);
         {mcast, Msg} ->
-            io:format("gms 3 ~w: received the message {mcast, ~w} ~n", [Id, Msg]),
+%%            io:format("gms 3 ~w: received the message {mcast, ~w} ~n", [Id, Msg]),
             Leader ! {mcast, Msg},
             slave(Id, Master, Leader, N, Last, Slaves, Group);
         {join, Wrk, Peer} ->
-            io:format("gms 3 ~w: forwarding join request  from the node ~w to leader~n", [Id, Peer]),
+%%            io:format("gms 3 ~w: forwarding join request  from the node ~w to leader~n", [Id, Peer]),
             Leader ! {join, Wrk, Peer},
             slave(Id, Master, Leader, N, Last, Slaves, Group);
         {msg, I, _} when I < N ->
-            io:format("gms 3 : recieved  msg with sequence  ~w ~n", [N]),
+%%            io:format("gms 3 : recieved  msg with sequence  ~w ~n", [N]),
             slave(Id, Master, Leader, N, Last, Slaves, Group);
         {msg, N, Msg} ->
-            io:format("gms 3 ~w: recieved join confirmation msg, sequence ~w ~w ~n", [Id, Msg, N]),
+%%            io:format("gms 3 ~w: recieved join confirmation msg, sequence ~w ~w ~n", [Id, Msg, N]),
             bcast(Id, {msg, N, Msg}, Slaves),
             Master ! Msg,
             slave(Id, Master, Leader, N+1, {msg, N, Msg}, Slaves, Group);
